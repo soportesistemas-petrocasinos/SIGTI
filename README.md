@@ -8,6 +8,13 @@ Base inicial de un sistema de gestión de TI, con el cliente y la API separados.
 - `backend/`: API REST Express y autenticación JWT.
 - `database/023_consolidate_public_production.sql`: migración definitiva para PostgreSQL / Supabase.
 
+## Documentación para implementación empresarial
+
+- [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md): alcance funcional, arquitectura, procesos, despliegue, seguridad, plan por fases y criterios de aceptación.
+- [`backend/docs/API.md`](backend/docs/API.md): referencia de endpoints.
+- [`backend/docs/DATABASE.md`](backend/docs/DATABASE.md): modelo y migraciones.
+- [`backend/docs/OPERATIONS.md`](backend/docs/OPERATIONS.md): operación y diagnóstico.
+
 ## Ejecución local
 
 1. Copie `backend/.env.example` a `backend/.env` y cambie `JWT_SECRET`.
