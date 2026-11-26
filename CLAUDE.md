@@ -67,6 +67,13 @@ server/
   usando `validate({ body: schema })`; los datos validados quedan en `req.validated`.
 - En el frontend, `client/src/api/` traduce los errores de la API a mensajes para el usuario.
 
+## Ramas
+- `develop`: rama de desarrollo y rama por defecto. Aquí se integra el trabajo nuevo.
+- `qa`: rama de pruebas. Recibe lo que viene de `develop` para validarlo.
+- `production`: rama de producción (antes `main`). Solo recibe lo que ya pasó por `qa`.
+
+Flujo de promoción: `develop` → `qa` → `production`. No se trabaja directamente sobre `qa` ni `production`.
+
 ## Reglas
 - No modificar migraciones existentes; los cambios al esquema van en migraciones nuevas.
 - No subir credenciales; usar `.env` (y mantener un `.env.example` sin valores reales).
