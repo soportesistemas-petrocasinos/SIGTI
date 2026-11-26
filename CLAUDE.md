@@ -16,6 +16,7 @@ Monorepo con npm workspaces; todos los comandos se corren desde la raíz.
 - Configurar entorno: copiar `server/.env.example` a `server/.env` y llenar los valores
 - Migrar BD: `npm run migrate` (aplica migraciones pendientes)
 - Nueva migración: `npm run migrate:make -w server -- nombre_descriptivo`
+- Crear/actualizar usuarios desde Excel: `npm run seed` (lee los `.xlsx` de `seeds/` en la raíz)
 - Correr (desarrollo): `npm run dev` (levanta client y server juntos)
 - Probar: `npm test`
 - Lint: `npm run lint`
@@ -66,6 +67,18 @@ server/
 - Toda entrada (body, params, query) se valida con Zod en la ruta antes de llegar al servicio,
   usando `validate({ body: schema })`; los datos validados quedan en `req.validated`.
 - En el frontend, `client/src/api/` traduce los errores de la API a mensajes para el usuario.
+
+## Login y usuarios
+- Los usuarios viven en la tabla `users` (BD de QA: `SIGTI-QA`). Se crean con `npm run seed`
+  a partir de los informes de empleados en `seeds/*.xlsx` (columna "Nombre completo" más
+  "Cargo" y/o "Área"). Los `.xlsx` tienen datos personales y no se suben (`.gitignore`).
+- Usuario: `nombre.apellido` (primer nombre + primer apellido, minúsculas, sin tildes ni ñ).
+  Si dos coinciden: `nombre.primerApellido.inicialSegundoApellido`. Las dos últimas palabras
+  del nombre completo se toman como apellidos.
+- Los usuarios nuevos reciben `AUTH_INITIAL_PASSWORD` (en `server/.env`, nunca en el código)
+  cifrada con scrypt y `must_change_password = true`. Re-ejecutar el seed no cambia contraseñas.
+- `POST /api/auth/login` responde `401 USER_NOT_FOUND`, `401 INVALID_PASSWORD` o
+  `400 MISSING_CREDENTIALS`. Aún no hay token/sesión en el servidor: las demás rutas no están protegidas.
 
 ## Ramas
 - `develop`: rama de desarrollo y rama por defecto. Aquí se integra el trabajo nuevo.

@@ -7,3 +7,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Informes de empleados (datos personales): se usan en local para el seed, no se suben.
+seeds/*.xlsx
