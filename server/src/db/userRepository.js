@@ -10,10 +10,23 @@ export function createUserRepository(db = getDb) {
         .first();
       return row ? toUser(row) : null;
     },
+
+    async findById(id) {
+      const row = await db()('users').where({ id }).first();
+      return row ? toUser(row) : null;
+    },
+
+    async updatePassword(id, passwordHash) {
+      await db()('users').where({ id }).update({
+        password_hash: passwordHash,
+        must_change_password: false,
+        updated_at: db().fn.now(),
+      });
+    },
   };
 }
 
-function toUser(row) {
+export function toUser(row) {
   return {
     id: row.id,
     username: row.username,

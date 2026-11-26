@@ -1,9 +1,26 @@
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import ChangePasswordPage from './pages/ChangePasswordPage.jsx';
 import { useSession } from './hooks/useSession.js';
 
 export default function App() {
-  const { user, signIn, signOut } = useSession();
+  const { status, user, error, signIn, signOut, updateUser } = useSession();
+
+  let page;
+  if (status === 'loading') {
+    page = <p className="status status--loading">Cargando…</p>;
+  } else if (!user) {
+    page = (
+      <>
+        {error && <p className="status status--error">{error}</p>}
+        <LoginPage onLogin={signIn} />
+      </>
+    );
+  } else if (user.mustChangePassword) {
+    page = <ChangePasswordPage user={user} onChanged={updateUser} />;
+  } else {
+    page = <HomePage />;
+  }
 
   return (
     <div className="layout">
@@ -19,7 +36,7 @@ export default function App() {
           </div>
         )}
       </header>
-      <main className="content">{user ? <HomePage /> : <LoginPage onLogin={signIn} />}</main>
+      <main className="content">{page}</main>
     </div>
   );
 }

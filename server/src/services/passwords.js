@@ -18,6 +18,10 @@ export async function verifyPassword(password, storedHash) {
     return false;
   }
   const expected = Buffer.from(hashB64, 'base64');
+  // Un hash dañado (p. ej. vacío) nunca debe dar la contraseña por buena.
+  if (expected.length !== KEY_LENGTH) {
+    return false;
+  }
   const actual = await scryptAsync(password, Buffer.from(saltB64, 'base64'), expected.length);
   return timingSafeEqual(actual, expected);
 }

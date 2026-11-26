@@ -78,7 +78,16 @@ server/
 - Los usuarios nuevos reciben `AUTH_INITIAL_PASSWORD` (en `server/.env`, nunca en el código)
   cifrada con scrypt y `must_change_password = true`. Re-ejecutar el seed no cambia contraseñas.
 - `POST /api/auth/login` responde `401 USER_NOT_FOUND`, `401 INVALID_PASSWORD` o
-  `400 MISSING_CREDENTIALS`. Aún no hay token/sesión en el servidor: las demás rutas no están protegidas.
+  `400 MISSING_CREDENTIALS` ("Ingresa con tu usuario y contraseña"). Si es correcto, abre una
+  sesión en el servidor: el token va en la cookie httpOnly `sigti_session` (path `/api`) y en
+  la tabla `sessions` solo se guarda su hash SHA-256. Dura `SESSION_TTL_HOURS` (8 por defecto).
+- Otras rutas: `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/change-password`.
+- Cambio obligatorio: mientras `must_change_password` sea `true`, la sesión solo sirve para
+  `/me`, `/logout` y `/change-password`. Al cambiarla se cierran las demás sesiones del usuario.
+  Nueva contraseña: mínimo 8 caracteres, letras y números, distinta de la inicial y de la actual.
+  Cambios posteriores exigen también `currentPassword`.
+- Toda ruta nueva que requiera usuario se protege con
+  `requireSession(authService), requirePasswordChanged` (`server/src/middlewares/auth.js`).
 
 ## Ramas
 - `develop`: rama de desarrollo y rama por defecto. Aquí se integra el trabajo nuevo.
