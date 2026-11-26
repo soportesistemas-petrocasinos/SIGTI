@@ -1,0 +1,23 @@
+# Lo que NO entra al contexto de construcción de la imagen.
+
+# Datos personales y credenciales: nunca dentro de una imagen.
+seeds/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Se regeneran dentro de la imagen.
+**/node_modules
+**/dist
+**/coverage
+**/*.log
+
+# No hacen falta para ejecutar la app.
+.git
+.github
+.claude
+deploy
+docs
+server/tests
+*.md
+*.txt

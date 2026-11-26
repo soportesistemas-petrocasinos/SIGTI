@@ -1,0 +1,28 @@
+# Nginx del host · SIGTI QA
+# Archivo exclusivo de SIGTI: /etc/nginx/sites-available/sigtiqa.portalpetrocasinos.com
+# Reemplazar SIGTI_HOST_PORT por el valor de /opt/sigti-qa/.env.
+# Después: sudo nginx -t && sudo systemctl reload nginx   (reload, nunca restart)
+# El bloque HTTPS (443) lo agrega certbot: sudo certbot --nginx -d sigtiqa.portalpetrocasinos.com
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name sigtiqa.portalpetrocasinos.com;
+
+    # Margen para los adjuntos de tickets (M5 propone 10 MB por archivo).
+    client_max_body_size 12m;
+
+    access_log /var/log/nginx/sigtiqa.access.log;
+    error_log  /var/log/nginx/sigtiqa.error.log;
+
+    location / {
+        proxy_pass http://127.0.0.1:SIGTI_HOST_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        # Se reemplaza (no se concatena) para que el cliente no pueda inyectar IPs falsas.
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}

@@ -1,0 +1,86 @@
+# SIGTI · ambiente QA (sigtiqa.portalpetrocasinos.com)
+#
+# Aislamiento frente a los demás sistemas de la VPS:
+# - Proyecto compose propio (sigti-qa): contenedores, red y volúmenes con su prefijo.
+# - PostgreSQL propio, en una red interna sin salida y sin puerto publicado.
+# - La app solo escucha en 127.0.0.1:${SIGTI_HOST_PORT}; el único acceso externo es Nginx.
+# - Límites de memoria y rotación de logs.
+#
+# Uso: ver deploy/qa/README.md. Los valores salen de /opt/sigti-qa/.env (no se sube al repo).
+
+name: sigti-qa
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Define POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Define POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  app:
+    image: sigti-qa-app:${SIGTI_IMAGE_TAG:-latest}
+    build:
+      context: ../..
+      args:
+        APP_VERSION: ${SIGTI_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: "3000"
+      # La contraseña de la BD debe ser URL-safe (p. ej. openssl rand -hex 24).
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AUTH_INITIAL_PASSWORD: ${AUTH_INITIAL_PASSWORD:?Define AUTH_INITIAL_PASSWORD en .env}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      # Un solo proxy delante (Nginx del host).
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      # Cookie solo por HTTPS. Requiere que sigtiqa tenga certificado TLS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    ports:
+      - "127.0.0.1:${SIGTI_HOST_PORT:?Define SIGTI_HOST_PORT en .env}:3000"
+    networks:
+      - backend
+      - edge
+    mem_limit: 512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+volumes:
+  pgdata:
+    name: sigti_qa_pgdata
+
+networks:
+  # Solo app ↔ db; sin salida a internet ni puertos publicados.
+  backend:
+    name: sigti_qa_backend
+    internal: true
+  # Red por la que se publica el puerto de la app en 127.0.0.1.
+  edge:
+    name: sigti_qa_edge

@@ -13,7 +13,7 @@ describe('API base', () => {
   it('GET /api/health responde ok', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toEqual({ status: 'ok', version: 'dev' });
   });
 
   it('una ruta inexistente responde 404 con el formato de error', async () => {

@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, qa, production]
+  push:
+    branches: [develop, qa, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  verify:
+    name: Lint, pruebas y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Auditoría de dependencias de producción (alta o crítica)
+        run: npm audit --omit=dev --audit-level=high
+
+  migrations:
+    name: Migraciones contra PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: sigti_ci
+          POSTGRES_USER: sigti
+          POSTGRES_PASSWORD: ci_only_not_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sigti -d sigti_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://sigti:ci_only_not_secret@localhost:5432/sigti_ci
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Aplicar migraciones
+        run: npm run migrate
+      - name: Revertir todas (verifica los down)
+        run: npm exec -w server -- knex migrate:rollback --all
+      - name: Aplicar de nuevo
+        run: npm run migrate
+
+  docker:
+    name: Imagen Docker y compose de QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ENV_FILE: /tmp/sigti-ci.env
+      SIGTI_IMAGE_TAG: ci-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Archivo .env sintético (sin secretos reales)
+        run: |
+          cat > "$ENV_FILE" <<'EOF'
+          SIGTI_HOST_PORT=18080
+          POSTGRES_DB=SIGTI-QA
+          POSTGRES_USER=sigti
+          POSTGRES_PASSWORD=ciOnlyNotSecret123
+          AUTH_INITIAL_PASSWORD=ciOnlyInitial123
+          COOKIE_SECURE=false
+          EOF
+      - name: Validar docker-compose.yml de QA
+        run: docker compose -f deploy/qa/docker-compose.yml --env-file "$ENV_FILE" config --quiet
+      - name: Construir la imagen
+        run: docker compose -f deploy/qa/docker-compose.yml --env-file "$ENV_FILE" build app
+      - name: Levantar BD, migrar y levantar la app
+        run: |
+          C="docker compose -p sigti-ci -f deploy/qa/docker-compose.yml --env-file $ENV_FILE"
+          $C up -d --wait db
+          $C run --rm app npm run migrate
+          $C up -d --wait app
+      - name: Verificar health, versión, frontend y 404 de la API
+        run: |
+          curl -fsS http://127.0.0.1:18080/api/health/ready | tee /tmp/ready.json
+          grep -q "\"version\":\"$SIGTI_IMAGE_TAG\"" /tmp/ready.json
+          grep -q '"database":"ok"' /tmp/ready.json
+          curl -fsS -H 'Accept: text/html' http://127.0.0.1:18080/ | grep -qi '<div id="root">'
+          curl -fsS -H 'Accept: text/html' http://127.0.0.1:18080/ruta/de/react | grep -qi '<div id="root">'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/no-existe)" = 404
+      - name: Verificar que la BD no publica puertos
+        run: |
+          test -z "$(docker port sigti-ci-db-1)"
+      - name: Logs si algo falló
+        if: failure()
+        run: docker compose -p sigti-ci -f deploy/qa/docker-compose.yml --env-file "$ENV_FILE" logs
+      - name: Limpiar
+        if: always()
+        run: docker compose -p sigti-ci -f deploy/qa/docker-compose.yml --env-file "$ENV_FILE" down -v

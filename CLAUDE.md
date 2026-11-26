@@ -21,6 +21,7 @@ Monorepo con npm workspaces; todos los comandos se corren desde la raíz.
 - Probar: `npm test`
 - Lint: `npm run lint`
 - Build del frontend: `npm run build`
+- Probar como en QA sin Docker: `npm run build` y luego `STATIC_DIR=../client/dist npm start -w server`
 
 En desarrollo la API corre en el puerto `API_PORT` (3000 por defecto) y Vite (5173)
 reenvía `/api` a ella. Se usa `API_PORT` y no `PORT` para no heredar el puerto de otra herramienta.
@@ -88,6 +89,17 @@ server/
   Cambios posteriores exigen también `currentPassword`.
 - Toda ruta nueva que requiera usuario se protege con
   `requireSession(authService), requirePasswordChanged` (`server/src/middlewares/auth.js`).
+
+## Despliegue
+- Imagen única (`Dockerfile`): Express sirve la API en `/api` y el frontend compilado
+  (`STATIC_DIR`), en el mismo origen. Corre como usuario `node`.
+- QA: `deploy/qa/` (compose aislado `sigti-qa`, script `deploy.sh`, Nginx de ejemplo y runbook
+  `README.md`). Los secretos viven en `/opt/sigti-qa/.env` en la VPS, nunca en el repo.
+- Salud: `GET /api/health` (proceso vivo + versión) y `GET /api/health/ready` (además la BD).
+- Detrás de Nginx: `TRUST_PROXY=1`. `COOKIE_SECURE` fuerza la cookie `Secure`.
+- CI (`.github/workflows/ci.yml`): lint, pruebas, build, `npm audit`, migraciones contra
+  PostgreSQL (up, rollback, up) e imagen Docker probada con el compose de QA.
+- Metodología: AIDLC-M01 v0.3, plan en `docs/aidlc/`. Plantillas de PR y tarjetas en `.github/`.
 
 ## Ramas
 - `develop`: rama de desarrollo y rama por defecto. Aquí se integra el trabajo nuevo.
