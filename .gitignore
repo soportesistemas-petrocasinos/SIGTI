@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Credenciales: nunca subir. Usar .env.example como plantilla.
+.env
+.env.*
+!.env.example
