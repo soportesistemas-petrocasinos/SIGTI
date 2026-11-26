@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "express": "^5.3.0",
     "knex": "^3.3.0",
     "pg": "^8.23.1",
